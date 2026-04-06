@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proctor Display - Sesi Otomatis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 1s ease;
+            margin: 0;
+            background-color: #020617;
+            color: white;
+            overflow: hidden;
+        }
+
+        /* Ukuran Font Adaptif untuk LCD */
+        .token-text {
+            font-size: 15vw;
+            line-height: 0.8;
+            letter-spacing: -0.02em;
+            font-weight: 900;
+        }
+
+        .timer-text {
+            font-size: 12vw;
+            font-variant-numeric: tabular-nums;
+            font-weight: 900;
+        }
+
+        /* Efek Peringatan */
+        .warning-10 { animation: pulse-yellow 2s infinite; color: #fbbf24; }
+        .warning-5 { animation: pulse-red 0.8s infinite; color: #ef4444; }
+
+        @keyframes pulse-yellow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        @keyframes pulse-red { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(1.05); } }
+
+        /* Sembunyikan Panel Kontrol (Mode LCD) */
+        .hide-controls #control-panel { 
+            transform: translateY(-100%);
+            position: absolute;
+        }
+        
+        .hide-controls #display-area { 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center;
+            padding-top: 0;
+        }
+
+        .bg-urgent { background-color: #450a0a !important; }
+        
+        #control-panel {
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .custom-scroll::-webkit-scrollbar { width: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-950">
+
+    <!-- PANEL KONTROL PROKTOR (BAGIAN ATAS) -->
+    <div id="control-panel" class="p-6 bg-slate-900 border-b border-slate-800 shadow-2xl relative z-10 grid grid-cols-1 md:grid-cols-12 gap-8">
+        
+        <!-- Input Utama -->
+        <div class="md:col-span-4 space-y-4 border-r border-slate-800 pr-6">
+            <div>
+                <label class="text-xs font-bold uppercase tracking-widest text-slate-500 block mb-2">Kode Token</label>
+                <input type="text" id="input-token" placeholder="CONTOH: AB123" 
+                    class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-2xl font-black focus:ring-4 focus:ring-blue-600 outline-none uppercase transition-all">
+            </div>
+            <div class="flex gap-2">
+                <button id="btn-start" onclick="toggleTimer()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 p-3 rounded-xl font-black text-lg transition-all active:scale-95 shadow-lg shadow-emerald-900/20 uppercase">Mulai</button>
+                <button onclick="resetAll()" class="bg-slate-700 hover:bg-slate-600 px-4 rounded-xl font-bold text-xs uppercase">Reset</button>
+            </div>
+        </div>
+
+        <!-- Pengaturan Sesi -->
+        <div class="md:col-span-4 space-y-4 border-r border-slate-800 pr-6">
+            <label class="text-xs font-bold uppercase tracking-widest text-slate-500 block">Atur Durasi Sesi (Menit)</label>
+            <div class="flex gap-2">
+                <input type="number" id="queue-mins" value="10" min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 font-black outline-none text-2xl">
+                <button onclick="addToQueue()" class="bg-blue-700 hover:bg-blue-600 px-6 rounded-xl font-bold">TAMBAH</button>
+            </div>
+            <p class="text-xs text-slate-500 italic">Masukkan durasi ujian pertama, lalu kedua, dst. Sistem akan menyambungkan otomatis.</p>
+        </div>
+
+        <!-- Daftar Antrean -->
+        <div class="md:col-span-4 space-y-3">
+            <label class="text-xs font-bold uppercase tracking-widest text-slate-500 block">Urutan Sesi Berjalan</label>
+            <div id="queue-list" class="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scroll">
+                <p class="text-sm text-slate-600 italic">Antrean sesi masih kosong...</p>
+            </div>
+        </div>
+
+        <!-- Info Bar -->
+        <div class="md:col-span-12 flex justify-between items-center border-t border-slate-800 pt-4 mt-2">
+            <div class="flex gap-6 items-center">
+                <span class="text-xs text-slate-400 font-bold">MODE LCD: Tekan <kbd class="bg-slate-800 px-2 py-1 rounded text-white border border-slate-700 shadow-inner">H</kbd></span>
+                <button onclick="toggleFullscreen()" class="text-xs text-blue-500 font-black hover:text-blue-400 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    FULLSCREEN
+                </button>
+            </div>
+            <div id="real-time-clock" class="text-2xl font-mono text-blue-600 font-black tracking-tighter shadow-blue-900/20">00:00:00</div>
+        </div>
+    </div>
+
+    <!-- AREA LCD (TAMPILAN SISWA) -->
+    <div id="display-area" class="px-10 text-center transition-all duration-1000 pt-20">
+        <div id="session-info" class="mb-4 opacity-40 text-blue-500 font-black tracking-[0.8em] text-2xl md:text-4xl uppercase">SESI 1 DARI 1</div>
+        
+        <div class="mb-10">
+            <h1 class="text-slate-500 font-black tracking-[0.5em] uppercase text-xl md:text-3xl mb-4">TOKEN UJIAN</h1>
+            <div id="display-token" class="token-text text-white drop-shadow-[0_20px_50px_rgba(0,0,0,0.9)] uppercase">-----</div>
+        </div>
+
+        <div class="h-2 w-48 bg-slate-800 mx-auto rounded-full mb-12 opacity-30 shadow-inner"></div>
+
+        <div>
+            <h2 id="timer-label" class="text-slate-500 font-bold tracking-[0.6em] uppercase text-xl md:text-2xl mb-4 transition-colors">SISA WAKTU</h2>
+            <div id="display-timer" class="timer-text text-slate-100 drop-shadow-2xl">00:00:00</div>
+        </div>
+
+        <!-- Animasi Transisi -->
+        <div id="transition-overlay" class="hidden fixed inset-0 bg-slate-950/98 z-50 flex items-center justify-center backdrop-blur-xl">
+            <div class="text-center">
+                <div class="text-red-600 text-8xl font-black mb-6 animate-bounce">SESI SELESAI</div>
+                <div class="text-white text-3xl font-bold tracking-widest opacity-80 uppercase italic">Memulai Sesi Berikutnya Otomatis...</div>
+                <div class="mt-16 flex justify-center">
+                    <div class="w-24 h-24 border-8 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Layar Akhir -->
+        <div id="all-finished-msg" class="hidden fixed inset-0 bg-emerald-950 z-40 flex items-center justify-center">
+            <div class="text-center p-12">
+                <div class="text-white text-9xl font-black uppercase mb-4 drop-shadow-2xl animate-pulse">SELESAI</div>
+                <div class="text-emerald-200 text-3xl font-bold tracking-[0.5em]">SELURUH UJIAN TELAH BERAKHIR</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sessionQueue = []; 
+        let currentSessionIndex = 0;
+        let timeLeft = 0;
+        let timerId = null;
+        let isRunning = false;
+
+        const inputToken = document.getElementById('input-token');
+        const displayToken = document.getElementById('display-token');
+        const displayTimer = document.getElementById('display-timer');
+        const timerLabel = document.getElementById('timer-label');
+        const btnStart = document.getElementById('btn-start');
+        const queueListDiv = document.getElementById('queue-list');
+        const sessionInfo = document.getElementById('session-info');
+        const transitionOverlay = document.getElementById('transition-overlay');
+        const allFinishedMsg = document.getElementById('all-finished-msg');
+
+        // Update Token Real-time
+        inputToken.addEventListener('input', (e) => {
+            displayToken.innerText = e.target.value.toUpperCase() || "-----";
+        });
+
+        // Manajemen Antrean
+        function addToQueue() {
+            const mins = parseInt(document.getElementById('queue-mins').value);
+            if (isNaN(mins) || mins <= 0) return;
+            
+            sessionQueue.push(mins);
+            if (sessionQueue.length === 1) {
+                timeLeft = mins * 60;
+                updateTimerDisplay();
+            }
+            renderQueue();
+        }
+
+        function renderQueue() {
+            if (sessionQueue.length === 0) {
+                queueListDiv.innerHTML = '<p class="text-sm text-slate-600 italic">Antrean sesi masih kosong...</p>';
+                return;
+            }
+
+            queueListDiv.innerHTML = sessionQueue.map((mins, idx) => `
+                <div class="flex items-center justify-between p-3 rounded-xl transition-all ${idx === currentSessionIndex ? 'bg-blue-600 text-white shadow-lg' : (idx < currentSessionIndex ? 'bg-slate-800 opacity-30 text-slate-500' : 'bg-slate-800 text-slate-300')}">
+                    <span class="font-black text-sm uppercase">Sesi ${idx + 1}: ${mins} Menit</span>
+                    ${idx > currentSessionIndex ? `<button onclick="removeFromQueue(${idx})" class="text-red-400 font-bold hover:text-red-200 text-xs">HAPUS</button>` : (idx < currentSessionIndex ? '<span class="text-emerald-400 font-black text-xs">OK</span>' : '<span class="text-white/50 text-[10px] animate-pulse">AKTIF</span>')}
+                </div>
+            `).join('');
+
+            sessionInfo.innerText = `SESI ${currentSessionIndex + 1} DARI ${sessionQueue.length}`;
+        }
+
+        function removeFromQueue(idx) {
+            sessionQueue.splice(idx, 1);
+            renderQueue();
+        }
+
+        function updateTimerDisplay() {
+            const h = Math.floor(timeLeft / 3600);
+            const m = Math.floor((timeLeft % 3600) / 60);
+            const s = timeLeft % 60;
+            displayTimer.innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+            displayTimer.classList.remove('warning-10', 'warning-5');
+            document.body.classList.remove('bg-urgent');
+            timerLabel.classList.remove('text-yellow-500', 'text-red-500');
+
+            if (timeLeft > 0 && timeLeft <= 300) { // 5 Menit
+                displayTimer.classList.add('warning-5');
+                timerLabel.classList.add('text-red-500');
+                document.body.classList.add('bg-urgent');
+            } else if (timeLeft > 0 && timeLeft <= 600) { // 10 Menit
+                displayTimer.classList.add('warning-10');
+                timerLabel.classList.add('text-yellow-500');
+            }
+        }
+
+        function toggleTimer() {
+            if (sessionQueue.length === 0) return alert("Harap masukkan durasi sesi terlebih dahulu.");
+
+            if (isRunning) {
+                clearInterval(timerId);
+                btnStart.innerText = "LANJUTKAN";
+                btnStart.classList.replace('bg-orange-600', 'bg-emerald-600');
+                isRunning = false;
+            } else {
+                isRunning = true;
+                btnStart.innerText = "PAUSE";
+                btnStart.classList.replace('bg-emerald-600', 'bg-orange-600');
+                
+                timerId = setInterval(() => {
+                    timeLeft--;
+                    updateTimerDisplay();
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(timerId);
+                        isRunning = false;
+                        handleSessionChain();
+                    }
+                }, 1000);
+            }
+            renderQueue();
+        }
+
+        function handleSessionChain() {
+            if (currentSessionIndex < sessionQueue.length - 1) {
+                transitionOverlay.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    currentSessionIndex++;
+                    timeLeft = sessionQueue[currentSessionIndex] * 60;
+                    transitionOverlay.classList.add('hidden');
+                    updateTimerDisplay();
+                    renderQueue();
+                    toggleTimer(); // Start next session automatically
+                }, 5000); // 5 seconds pause between sessions
+            } else {
+                allFinishedMsg.classList.remove('hidden');
+            }
+        }
+
+        function resetAll() {
+            if (confirm("Reset seluruh sistem?")) {
+                location.reload();
+            }
+        }
+
+        // Jam Digital
+        setInterval(() => {
+            document.getElementById('real-time-clock').innerText = new Date().toLocaleTimeString('id-ID', { hour12: false });
+        }, 1000);
+
+        // Shortcut Mode LCD
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'h' && document.activeElement.tagName !== 'INPUT') {
+                document.body.classList.toggle('hide-controls');
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+            else document.exitFullscreen();
+        }
+
+        updateTimerDisplay();
+    </script>
+</body>
+</html>
