@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proctor Exam - Real Time Sync</title>
+    <title>Proctor Exam - Fixed Token Sync</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
@@ -14,6 +14,7 @@
             --text-main: #f8fafc;
             --border-color: #1e293b;
             --input-bg: #1e293b;
+            --accent-blue: #3b82f6;
         }
 
         .light-mode {
@@ -22,13 +23,14 @@
             --text-main: #0f172a;
             --border-color: #e2e8f0;
             --input-bg: #f8fafc;
+            --accent-blue: #2563eb;
         }
 
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-main);
             color: var(--text-main);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: background-color 0.4s, color 0.4s;
             margin: 0;
             overflow-x: hidden;
         }
@@ -49,6 +51,7 @@
             line-height: 0.8;
             font-weight: 900;
             letter-spacing: -0.02em;
+            color: var(--text-main);
         }
 
         .lcd-text-timer {
@@ -69,7 +72,7 @@
 
         select.custom-picker {
             appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='gray'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 0.4rem center;
             background-size: 0.8rem;
@@ -88,9 +91,11 @@
 </head>
 <body>
 
+    <!-- PANEL KONTROL -->
     <div id="control-panel" class="panel-theme p-4 shadow-2xl relative z-20">
         <div class="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
             
+            <!-- Kolom 1: Token & Theme -->
             <div class="lg:col-span-3 space-y-3">
                 <div class="flex justify-between items-center">
                     <label class="text-[10px] font-black uppercase opacity-50 tracking-widest">Token Ujian</label>
@@ -99,13 +104,17 @@
                         <svg id="moon-icon" class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/></svg>
                     </button>
                 </div>
-                <input type="text" id="input-token" placeholder="TOKEN" class="input-theme w-full rounded-xl p-3 text-xl font-black uppercase outline-none focus:ring-2 focus:ring-blue-500">
+                <!-- Perbaikan Utama: OnInput akan memicu update ke layar -->
+                <input type="text" id="input-token" placeholder="KETIK TOKEN" 
+                    oninput="updateTokenDisplay(this.value)"
+                    class="input-theme w-full rounded-xl p-3 text-xl font-black uppercase outline-none focus:ring-2 focus:ring-blue-500">
                 <div class="flex gap-2">
-                    <button id="btn-start" onclick="toggleTimer()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl font-black text-lg active:scale-95 transition-all">MULAI</button>
+                    <button id="btn-start" onclick="toggleTimer()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white p-3 rounded-xl font-black text-lg shadow-lg active:scale-95 transition-all">MULAI</button>
                     <button onclick="resetAll()" class="bg-slate-500/20 hover:bg-slate-500/40 px-4 rounded-xl font-bold text-[10px] uppercase">Reset</button>
                 </div>
             </div>
 
+            <!-- Kolom 2: Set Jadwal -->
             <div class="lg:col-span-5 space-y-3 lg:border-x lg:border-slate-500/20 lg:px-6">
                 <label class="text-[10px] font-black uppercase opacity-50 tracking-widest">Set Jadwal Sesi</label>
                 <div class="grid grid-cols-2 gap-4">
@@ -134,12 +143,15 @@
                 </div>
             </div>
 
+            <!-- Kolom 3: Antrean & Jam Digital -->
             <div class="lg:col-span-4 space-y-3">
                 <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-black uppercase opacity-50 tracking-widest">Jadwal Sesi</label>
+                    <label class="text-[10px] font-black uppercase opacity-50 tracking-widest">Status Jadwal</label>
                     <span id="queue-counter" class="text-[10px] font-black text-blue-500">0/0</span>
                 </div>
-                <div id="queue-list" class="space-y-2 max-h-[80px] overflow-y-auto pr-2 custom-scroll min-h-[40px]"></div>
+                <div id="queue-list" class="space-y-2 max-h-[80px] overflow-y-auto pr-2 custom-scroll min-h-[40px]">
+                    <p class="text-[10px] opacity-30 italic">Tambahkan sesi ujian...</p>
+                </div>
                 <div class="flex justify-between items-center pt-2 border-t border-slate-500/10">
                     <div id="digital-clock" class="text-xl font-mono text-blue-600 font-black">00:00:00</div>
                     <button onclick="document.body.classList.toggle('hide-controls')" class="text-[9px] font-black opacity-40 hover:opacity-100 uppercase tracking-widest border border-slate-500/20 px-2 py-1 rounded transition-all">Layar Penuh (H)</button>
@@ -148,13 +160,17 @@
         </div>
     </div>
 
+    <!-- AREA DISPLAY BESAR -->
     <div id="display-area" class="px-6 text-center transition-all duration-1000 pt-16 md:pt-24">
         <div id="session-label" class="mb-4 opacity-30 text-blue-600 font-black tracking-[0.6em] text-lg md:text-2xl uppercase">SIAP DIMULAI</div>
+        
         <div class="mb-8">
             <h1 class="opacity-40 font-black tracking-[0.4em] uppercase text-[10px] md:text-sm mb-4">TOKEN UJIAN</h1>
             <div id="display-token" class="lcd-text-token drop-shadow-2xl uppercase">-----</div>
         </div>
+
         <div class="h-1.5 w-24 bg-slate-500/20 mx-auto rounded-full my-8"></div>
+
         <div>
             <h2 id="timer-label" class="opacity-40 font-bold tracking-[0.5em] uppercase text-[10px] md:text-sm mb-4">SISA WAKTU</h2>
             <div id="display-timer" class="lcd-text-timer">00:00:00</div>
@@ -162,6 +178,13 @@
     </div>
 
     <script>
+        // FUNGSI UPDATE TOKEN (Fix)
+        function updateTokenDisplay(val) {
+            const display = document.getElementById('display-token');
+            display.innerText = val.toUpperCase() || "-----";
+        }
+
+        // TEMA TOGGLE
         function toggleTheme() {
             const body = document.body;
             body.classList.toggle('light-mode');
@@ -172,6 +195,7 @@
         }
         if(localStorage.getItem('proctor-theme') === 'light') toggleTheme();
 
+        // INISIALISASI PICKER JAM
         const selectors = {
             hStart: document.getElementById('start-h'), mStart: document.getElementById('start-m'),
             hEnd: document.getElementById('end-h'), mEnd: document.getElementById('end-m')
@@ -194,6 +218,7 @@
         selectors.hEnd.value = String(nowInit.getHours() + 1).padStart(2, '0');
         selectors.mEnd.value = String(nowInit.getMinutes()).padStart(2, '0');
 
+        // LOGIKA APLIKASI
         let sessions = [];
         let currentIndex = 0;
         let timeLeft = 0;
@@ -203,8 +228,6 @@
         function addByTime() {
             const sh = selectors.hStart.value, sm = selectors.mStart.value;
             const eh = selectors.hEnd.value, em = selectors.mEnd.value;
-            
-            // Simpan waktu akhir dalam format menit absolut hari ini
             const startTotal = parseInt(sh) * 60 + parseInt(sm);
             const endTotal = parseInt(eh) * 60 + parseInt(em);
             
@@ -212,8 +235,8 @@
 
             sessions.push({
                 label: `${sh}:${sm} - ${eh}:${em}`,
-                endMinutes: endTotal, // Logika baru: simpan target waktu akhir
-                duration: endTotal - startTotal // Backup durasi asli
+                endMinutes: endTotal,
+                duration: endTotal - startTotal
             });
 
             if (sessions.length === 1) calculateInitialTime();
@@ -222,12 +245,14 @@
         }
 
         function calculateInitialTime() {
+            if (sessions.length === 0) return;
             const now = new Date();
             const currentTotal = now.getHours() * 60 + now.getMinutes();
             const session = sessions[currentIndex];
 
-            // LOGIKA POKOK: Jika sudah melewati waktu mulai, potong otomatis
-            if (currentTotal > (session.endMinutes - session.duration)) {
+            const startMins = session.endMinutes - session.duration;
+
+            if (currentTotal > startMins) {
                 const diff = session.endMinutes - currentTotal;
                 timeLeft = diff > 0 ? diff * 60 : 0;
             } else {
@@ -236,16 +261,20 @@
         }
 
         function toggleTimer() {
-            if (sessions.length === 0) return alert("Tambahkan sesi dulu!");
+            if (sessions.length === 0) return alert("Tambahkan sesi ujian dulu!");
+            const btn = document.getElementById('btn-start');
+            
             if (isRunning) {
                 clearInterval(timerId);
                 isRunning = false;
-                document.getElementById('btn-start').innerText = "LANJUTKAN";
+                btn.innerText = "LANJUTKAN";
+                btn.classList.replace('bg-orange-600', 'bg-emerald-600');
             } else {
-                // Saat menekan MULAI, cek ulang apakah waktu laptop sudah berjalan jauh
                 calculateInitialTime(); 
                 isRunning = true;
-                document.getElementById('btn-start').innerText = "PAUSE";
+                btn.innerText = "PAUSE";
+                btn.classList.replace('bg-emerald-600', 'bg-orange-600');
+                
                 timerId = setInterval(() => {
                     if(timeLeft > 0) {
                         timeLeft--;
@@ -253,7 +282,8 @@
                     } else {
                         clearInterval(timerId);
                         isRunning = false;
-                        alert("Waktu Habis!");
+                        btn.innerText = "MULAI";
+                        alert("Waktu Sesi Ini Telah Habis!");
                     }
                 }, 1000);
             }
@@ -269,18 +299,24 @@
                 duration: mins,
                 endMinutes: startMins + mins 
             });
-            if (sessions.length === 1) timeLeft = mins * 60;
+            if (sessions.length === 1) calculateInitialTime();
             renderQueue();
             updateDisplay();
         }
 
         function renderQueue() {
             const q = document.getElementById('queue-list');
-            if (sessions.length === 0) { q.innerHTML = '<p class="text-[10px] opacity-30 italic">Belum ada sesi...</p>'; return; }
+            if (sessions.length === 0) { 
+                q.innerHTML = '<p class="text-[10px] opacity-30 italic">Tambahkan sesi ujian...</p>'; 
+                return; 
+            }
             q.innerHTML = sessions.map((s, i) => `
-                <div class="flex items-center justify-between p-2 rounded-lg text-[10px] ${i === currentIndex ? 'bg-blue-600 text-white font-black' : 'bg-slate-500/10'}">
+                <div class="flex items-center justify-between p-2 rounded-lg text-[10px] ${i === currentIndex ? 'bg-blue-600 text-white font-black shadow-lg' : 'bg-slate-500/10 opacity-60'}">
                     <span>${i+1}. ${s.label}</span>
                 </div>`).join('');
+            
+            document.getElementById('queue-counter').innerText = `${currentIndex + 1}/${sessions.length}`;
+            document.getElementById('session-label').innerText = `SESI ${currentIndex + 1} DARI ${sessions.length}`;
         }
 
         function updateDisplay() {
@@ -288,10 +324,22 @@
             const m = Math.floor((timeLeft % 3600) / 60);
             const s = timeLeft % 60;
             document.getElementById('display-timer').innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            
+            // Efek Merah jika di bawah 5 menit
+            if (timeLeft > 0 && timeLeft <= 300) {
+                document.getElementById('display-timer').classList.add('text-red-500', 'pulse-red');
+                document.body.classList.add('bg-danger');
+            } else {
+                document.getElementById('display-timer').classList.remove('text-red-500', 'pulse-red');
+                document.body.classList.remove('bg-danger');
+            }
         }
 
-        function resetAll() { if(confirm("Reset?")) location.reload(); }
-        setInterval(() => { document.getElementById('digital-clock').innerText = new Date().toLocaleTimeString('id-ID', {hour12:false}); }, 1000);
+        function resetAll() { if(confirm("Hapus semua data?")) location.reload(); }
+        
+        setInterval(() => { 
+            document.getElementById('digital-clock').innerText = new Date().toLocaleTimeString('id-ID', {hour12:false}); 
+        }, 1000);
     </script>
 </body>
 </html>
